@@ -1,0 +1,23 @@
+[33mcommit 77328518ad7e398000c9c3229cb1ae5f3b9af311[m
+Author: Tyler Hardy <tylerhardy@ad.weber.edu>
+Date:   Fri Mar 24 13:51:23 2017 -0600
+
+    Removed could be sensitive info
+
+[33mcommit 99bcea0045f9df4cef3bb65e90695a6865b485c3[m
+Author: Tyler Hardy <tylerhardy@ad.weber.edu>
+Date:   Fri Mar 24 13:37:11 2017 -0600
+
+    Changed comment for user environment variables
+
+[33mcommit 7c1960f3a53528501533c4095ab26e5debb1b93c[m
+Author: tylerhardy <tylerhardy@gmail.com>
+Date:   Fri Mar 24 13:29:43 2017 -0600
+
+    Add files via upload
+
+[33mcommit 2b5f7bae51a9d4b5aeb4437439c913b940d7d8a8[m
+Author: tylerhardy <tylerhardy@gmail.com>
+Date:   Fri Mar 24 13:29:07 2017 -0600
+
+    Initial commit
