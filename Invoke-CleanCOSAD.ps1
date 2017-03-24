@@ -23,6 +23,7 @@ function Invoke-CleanCOSAD {
     [CmdletBinding()]
     param(
         [Parameter()]
+        # Rename these variables to suit your enivronment
         [int]$disableDay=90,
         [int]$deleteDay=120,
         [string]$searchOU="OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
