@@ -3,8 +3,8 @@
     AD cleanup script created to cleanup inactive stale computers off of a OU and sub OU's after a time of inactivity.
 .DESCRIPTION
     Script has three functions: 
-    [Get-StaleADComputers] - Finds all the potential stale computers on the network inactive for 90 days and exports the computers to a .CSV file.
-    [Disable-staleADComputers] - Disables all stale AD computers that have been inactive within 90 days and export the log of the computers disabled.
+    [Get-staleADComputer] - Finds all the potential stale computers on the network inactive for 90 days and exports the computers to a .CSV file.
+    [Disable-staleADComputer] - Disables all stale AD computers that have been inactive within 90 days and export the log of the computers disabled.
     [Delete-disableADComputers] - Deletes all disabled stale AD computers that have been inactive within 120 days and export the log of the computers deleted.
 
 .NOTES
@@ -21,9 +21,9 @@ function Invoke-CleanCOSAD {
         # Change these variables to your enivronment
         [int]$disableDay=90,
         [int]$deleteDay=120,
-        [string]$searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
-        [string]$excludeOU1="*OU=servers,OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
-        [string]$excludeOU2="*OU=vm,OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
+        [string]$searchOU="OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
+        [string]$excludeOU1="*OU=AnatomyLab,OU=zoo,OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
+        [string]$excludeOU2="*OU=vm,OU=IT,OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
         [string]$default_log="$env:userprofile\Documents\stale_computer_report_$((Get-Date).ToString('MM-dd-yyyy')).csv",
         [string]$disable_log="$env:userprofile\Documents\disabled_stale_computer_report_$((Get-Date).ToString('MM-dd-yyyy')).csv",
         [string]$delete_log="$env:userprofile\Documents\deleted_disabled_stale_computer_report_$((Get-Date).ToString('MM-dd-yyyy')).csv"
@@ -46,12 +46,12 @@ function Invoke-CleanCOSAD {
             Write-Host "Disable cutoff date: "$compareDateDisable.ToShortDateString()           
             Write-Host "Delete cutoff date: "$compareDateDelete.ToShortDateString()             
             Write-Host "`n========================================================`n"            
-            Write-Host "1: Press '1' To run report (Get-staleADComputers)."
-            Write-Host "2: Press '2' To disable stale computers (Disable-staleADComputers)."
-            Write-Host "3: Press '3' To delete disabled computers (Remove-disableADComputers)."
+            Write-Host "1: Press '1' To run report (Get-staleADComputer)."
+            Write-Host "2: Press '2' To disable stale computers (Disable-staleADComputer)."
+            Write-Host "3: Press '3' To delete disabled computers (Remove-disableADComputer)."
             Write-Host "Q: Press 'Q' to quit."
         }
-        function Get-staleADComputers {
+        function Get-staleADComputer {
             [CmdletBinding()]
             param(
                 [int]$disableDay,
@@ -80,12 +80,12 @@ function Invoke-CleanCOSAD {
                     return $results
                 }
                 catch {
-                    Write-Warning "[CATCH] Error, command (Get-staleADComputers) failed: $($_.Exception)"
+                    Write-Warning "[CATCH] Error, command (Get-staleADComputer) failed: $($_.Exception)"
                     Write-Warning $error[0].Exception.GetType().FullName
                 }
             }
         }
-        function Disable-staleADComputers {
+        function Disable-staleADComputer {
             [CmdletBinding()]
             param(
                 [int]$disableDay,
@@ -99,7 +99,7 @@ function Invoke-CleanCOSAD {
                 $compareDate = ([DateTime]::Today.AddDays(-($disableDay))).ToFileTimeUTC()
                 $disabledComputers = @()
                 try {
-                    $disableStalePC = Get-ADComputer -Filter {(pwdLastSet -lt $compareDate) -and (LastLogonTimeStamp -lt $compareDate) -and (Enabled -eq $True) -and (IsCriticalSystemObject -ne $True)}`
+                    Get-ADComputer -Filter {(pwdLastSet -lt $compareDate) -and (LastLogonTimeStamp -lt $compareDate) -and (Enabled -eq $True) -and (IsCriticalSystemObject -ne $True)}`
                     -Properties Name,PwdLastSet,WhenChanged,SamAccountName,LastLogonTimeStamp,Enabled,Description,IPv4Address,`
                     operatingsystem,operatingsystemversion,serviceprincipalname,DistinguishedName -SearchScope Subtree -SearchBase $SearchOU |
                     Where-Object {($_.DistinguishedName -notlike $excludeOU1) -and ($_.DistinguishedName -notlike $excludeOU2) -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
@@ -121,17 +121,14 @@ function Invoke-CleanCOSAD {
                         $disabledComputers | Export-Csv -Append $disable_log -NoTypeInformation
                         return $results
                     }
-                    else {
-                        return $false
-                    }
                 }
                 catch {
-                    Write-Warning "[CATCH] Error, command (Disable-staleADComputers) failed: $($_.Exception)"
+                    Write-Warning "[CATCH] Error, command (Disable-staleADComputer) failed: $($_.Exception)"
                     Write-Warning $error[0].Exception.GetType().FullName
                 }
             }
         }
-        function Remove-disableADComputers {
+        function Remove-disableADComputer {
             [CmdletBinding()]
             param(
                 [int]$deleteDay,
@@ -185,13 +182,10 @@ function Invoke-CleanCOSAD {
                         $deletedComputers | Export-Csv -Append $delete_log -NoTypeInformation
                         return $results
                     }
-                    else {
-                        return $false
-                    }
 
                 }
                 catch {
-                    Write-Warning "[CATCH] Error, command (Remove-disableADComputers) failed: $($_.Exception)"
+                    Write-Warning "[CATCH] Error, command (Remove-disableADComputer) failed: $($_.Exception)"
                     Write-Warning $error[0].Exception.GetType().FullName
                 }
             }
@@ -214,76 +208,72 @@ function Invoke-CleanCOSAD {
             }
             switch ($input) {
                 1 {
-                    # Runs Get-staleADComputers report
+                    # Runs Get-staleADComputer report
                     Clear-Host
-                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Get-staleADComputers] to create COS AD stale computers report."
+                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Get-staleADComputer] to create COS AD stale computers report."
                     $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No","Report does not run, returns to main menu."
                     $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
                     $result = $host.ui.PromptForChoice("Run AD Stale Computers Report", "Do you want to run the AD stale computers report?", $options, 0)
                     switch ($result) {
                         0 {
-                            "`nYou selected Yes, running report..."
-                            $staleCount = Get-staleADComputers $disableDay $searchOU $excludeOU1 $excludeOU2 $default_log
-                            if ($staleCount) {
-                                "Report successfully ran and exported to $default_log"
-                                "There are [$staleCount] stale computers reported in [$searchOU] OU and sub OU's`n"
+                            Write-Output "`nYou selected Yes, running report..."
+                            $staleCount = Get-staleADComputer $disableDay $searchOU $excludeOU1 $excludeOU2 $default_log
+                            if ($staleCount -gt 0) {
+                                Write-Output "Report successfully ran and exported to $default_log`nThere are [$staleCount] stale computers reported in [$searchOU] OU and sub OU's`n"
                             }
                             else {
-                                "Report successfully ran and exported to $default_log"
-                                "No stale computers found"
+                                Write-Output "Report successfully ran and exported to $default_log`nNo stale computers found"
                             }
                         }
                         1 {
-                            "`nYou selected No, returning to the main menu.`n"
+                            Write-Output "`nYou selected No, returning to the main menu.`n"
                         }
                     }
                 } 
                 2 {
-                    # Runs Disable-staleADComputers function to disable inactive computers
+                    # Runs Disable-staleADComputer function to disable inactive computers
                     Clear-Host
-                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Disable-staleADComputers] to disable computers inactive for $disableDay days."
+                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Disable-staleADComputer] to disable computers inactive for $disableDay days."
                     $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No","No computers disabled, returns to main menu."
                     $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
                     $result = $host.ui.PromptForChoice("Disable All Stale Computers", "Do you want to disable all stale computers in COS AD?", $options, 1)
                     switch ($result) {
                         0 {
-                            "`nYou selected Yes, disabling computers..."
-                            $disableCount = Disable-staleADComputers $disableDay $searchOU $excludeOU1 $excludeOU2 $disable_log
-                            if ($disableCount) {
-                                "Disabled computers log successfully exported to $disable_log"
-                                "Disabled [$disableCount] computers in [$searchOU] OU and sub OU's`n"
+                            Write-Output "`nYou selected Yes, disabling computers..."
+                            $disableCount = Disable-staleADComputer $disableDay $searchOU $excludeOU1 $excludeOU2 $disable_log
+                            if ($disableCount -gt 0) {
+                                Write-Output "Disabled computers log successfully exported to $disable_log`nDisabled [$disableCount] computers in [$searchOU] OU and sub OU's`n"
                             }
                             else {
-                                "No computers to be disabled"
+                                Write-Output "No computers to be disabled"
                             }
                         }
                         1 {
-                            "`nYou selected No, returning to the main menu.`n"
+                            Write-Output "`nYou selected No, returning to the main menu.`n"
                         }
                     }
                 } 
                 3 {
-                    # Runs Remove-disableADComputers function to delete disabled inactive computers
+                    # Runs Remove-disableADComputer function to delete disabled inactive computers
                     Clear-Host
-                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Remove-disableADComputers] to delete computers inactive for $deleteDay days."
+                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Remove-disableADComputer] to delete computers inactive for $deleteDay days."
                     $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No","No computers deleted, returns to main menu."
                     $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
                     $result = $host.ui.PromptForChoice("Delete All Stale Disabled Computers", "Do you want to delete all stale disabled computers in COS AD?", $options, 1)
                     switch ($result) {
                         0 {
-                            "`nYou selected Yes, deleting computers..."
-                            $deleteCount = Remove-disableADComputers $deleteDay $searchOU $excludeOU1 $excludeOU2 $delete_log
+                            Write-Output "`nYou selected Yes, deleting computers..."
+                            $deleteCount = Remove-disableADComputer $deleteDay $searchOU $excludeOU1 $excludeOU2 $delete_log
                             if ($deleteCount) {
-                                "Deleted computers log successfully exported to $delete_log"
-                                "Deleted [$deleteCount] computers in [$searchOU] OU and sub OU's`n"
+                                Write-Output "Deleted computers log successfully exported to $delete_log`nDeleted [$deleteCount] computers in [$searchOU] OU and sub OU's`n"
                             }
                             else {
-                                "No computers to be deleted"
+                                Write-Output "No computers to be deleted"
                             }
 
                         }
                         1 {
-                            "`nYou selected No, returning to the main menu.`n"
+                            Write-Output "`nYou selected No, returning to the main menu.`n"
                         }
                     }
                 } 
@@ -298,6 +288,5 @@ function Invoke-CleanCOSAD {
         until ($input -eq 'q')
     }   
 }
-
-# Run the function
+#Run Invoke-CleanCOSAD
 Invoke-CleanCOSAD
