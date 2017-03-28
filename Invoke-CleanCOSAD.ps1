@@ -21,9 +21,9 @@ function Invoke-CleanCOSAD {
         # Change these variables to your enivronment
         [int]$disableDay=90,
         [int]$deleteDay=120,
-        [string]$searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
-        [string]$excludeOU1="*OU=servers,OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
-        [string]$excludeOU2="*OU=vm,OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
+        [string]$searchOU="OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
+        [string]$excludeOU1="*OU=AnatomyLab,OU=zoo,OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
+        [string]$excludeOU2="*OU=vm,OU=IT,OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
         [string]$default_log="$env:userprofile\Documents\stale_computer_report_$((Get-Date).ToString('MM-dd-yyyy')).csv",
         [string]$disable_log="$env:userprofile\Documents\disabled_stale_computer_report_$((Get-Date).ToString('MM-dd-yyyy')).csv",
         [string]$delete_log="$env:userprofile\Documents\deleted_disabled_stale_computer_report_$((Get-Date).ToString('MM-dd-yyyy')).csv"
