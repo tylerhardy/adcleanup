@@ -185,8 +185,8 @@ function Invoke-CleanCOSAD {
                             Write-Warning $error[0].Exception.GetType().FullName
                         }
                     }
-                    if (!([string]::IsNullOrWhiteSpace($deletedComputers))) {
-                        $results = $deletedComputers.count
+                    $results = $deletedComputers.count
+                    if ($results -gt 0) {
                         $deletedComputers | Export-Csv -Append $delete_log -NoTypeInformation
                         return $results
                     }
