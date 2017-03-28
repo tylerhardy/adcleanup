@@ -1,15 +1,25 @@
 # adcleanup
-AD cleanup for Weber State University - College of Science
 
-Created By Tyler Hardy
+AD cleanup script created to cleanup inactive stale computers off of a OU and sub OU's
 
-Prerequisites:
+## Installation
 
--Powershell v3.0
--RSAT installed on computer running the script
--Import-module ActiveDirectory
+Requires Powershell v3, RSAT installed on the computer running the script, and the ActiveDirectory module imported.  Edit the script domain variables to match your own.
 
-Script Variables:
+## Usage
 
--Change OU variables to match your domain
+1. [Get-StaleADComputers] - Finds all the potential stale computers on the network inactive for 90 days and exports the computers to a .CSV file.
+2. [Disable-staleADComputers] - Disables all stale AD computers that have been inactive within 90 days and export the log of the computers disabled.
+3. [Delete-disableADComputers] - Deletes all disabled stale AD computers that have been inactive within 120 days and export the log of the computers deleted.
 
+## History
+
+TODO: Write history
+
+## Credits
+
+TODO: Write credits
+
+## License
+
+TODO: Write license
