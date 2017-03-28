@@ -1,22 +1,17 @@
-#REQUIRES -Version 3.0
 <#
 .SYNOPSIS
-    Runs AD stale computer reports, disable stale computers after 90 days, and delete disabled stale computers after 120 days
+    AD cleanup script created to cleanup inactive stale computers off of a OU and sub OU's after a time of inactivity.
 .DESCRIPTION
     Script has three functions: 
-    Get-staleADComputers - Runs a report of the searchOU and Sub OU's of all stale computers
-    Disable-staleADComputers - Disables all stale computers with inactivity of 90 days.
-    Remove-disableADComputers - Deletes all disabled stale computers with inactivity of 120 days.
+    [Get-StaleADComputers] - Finds all the potential stale computers on the network inactive for 90 days and exports the computers to a .CSV file.
+    [Disable-staleADComputers] - Disables all stale AD computers that have been inactive within 90 days and export the log of the computers disabled.
+    [Delete-disableADComputers] - Deletes all disabled stale AD computers that have been inactive within 120 days and export the log of the computers deleted.
 
 .NOTES
     File Name      : Invoke-CleanCOSAD.ps1
     Author         : Tyler Hardy (tylerhardy@weber.edu)
-    Prerequisite   : PowerShell V2 over Vista and upper.
+    Prerequisite   : PowerShell V3, RSAT
     Copyright 2017 - Tyler Hardy
-.LINK
-
-.EXAMPLE
-    Example 1
 #>
 
 function Invoke-CleanCOSAD {
