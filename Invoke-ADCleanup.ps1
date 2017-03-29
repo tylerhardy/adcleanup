@@ -21,14 +21,14 @@ function Invoke-ADCleanup {
         # Change these variables to your enivronment
         [int]$disableAge=90,
         [int]$deleteAge=120,
-        [string]$searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
-        [string]$excludeOU1="*OU=servers*",
-        [string]$excludeOU2="*OU=vm*",
         [string]$StaleComputer_Report="",
         [string]$Disabled_SC_Report="",
-        [string]$Deleted_DSC_Report=""
+        [string]$Deleted_DSC_Report="",
+        [string]$searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com"
     )
     BEGIN {
+        # Exclusion List, add aditional OU's with '|' between the OU's
+        $exclusionList = "OU=vm|OU=servers"
         if ([string]::IsNullOrWhiteSpace($StaleComputer_Report)) {
             $StaleComputer_Report="$env:userprofile\Documents\$((Get-Date).ToString('yyyy-MM-dd'))_stale_computer_report.csv"
         }
@@ -48,9 +48,8 @@ function Invoke-ADCleanup {
             param(
                 [int]$disableAge,
                 [string]$searchOU,
-                [string]$excludeOU1,
-                [string]$excludeOU2,
-                [string]$StaleComputer_Report
+                [string]$StaleComputer_Report,
+                [string[]]$exclusionList
             )
             PROCESS {
                 # Local Variables
@@ -60,7 +59,7 @@ function Invoke-ADCleanup {
                     # Build the report
                     $stalePCReport = Get-ADComputer -Filter {(isCriticalSystemObject -eq $False)} -Properties Name,PwdLastSet,WhenChanged,SamAccountName,LastLogonTimeStamp,Enabled,IPv4Address,`
                     operatingsystem,operatingsystemversion,serviceprincipalname -SearchScope Subtree -SearchBase $SearchOU -ErrorAction Stop |
-                    Where-Object {($_.DistinguishedName -notlike $excludeOU1) -and ($_.DistinguishedName -notlike $excludeOU2)} |
+                    Where-Object {($_.DistinguishedName -notmatch $exclusionList)} |
                     Select-Object Name,operatingsystem,operatingsystemversion,Enabled,@{Name="PwdLastSet";Expression={[datetime]::FromFileTime($_.PwdLastSet)}},`
                     @{Name="LastLogonTimeStamp";Expression={[datetime]::FromFileTime($_.LastLogonTimeStamp)}},WhenChanged,IPv4Address, `
                     @{Name="Stale";Expression={if((($_.pwdLastSet -lt $compareDate.ToFileTimeUTC()) -and ($_.pwdLastSet -ne 0)`
@@ -82,9 +81,8 @@ function Invoke-ADCleanup {
             param(
                 [int]$disableAge,
                 [string]$searchOU,
-                [string]$excludeOU1,
-                [string]$excludeOU2,
-                [string]$Disabled_SC_Report
+                [string]$Disabled_SC_Report,
+                [string[]]$exclusionList
             )
             PROCESS {
                 # Local Variables
@@ -94,7 +92,7 @@ function Invoke-ADCleanup {
                     Get-ADComputer -Filter {(pwdLastSet -lt $compareDate) -and (LastLogonTimeStamp -lt $compareDate) -and (Enabled -eq $True) -and (IsCriticalSystemObject -ne $True)}`
                     -Properties Name,PwdLastSet,WhenChanged,SamAccountName,LastLogonTimeStamp,Enabled,Description,IPv4Address,`
                     operatingsystem,operatingsystemversion,serviceprincipalname,DistinguishedName -SearchScope Subtree -SearchBase $SearchOU |
-                    Where-Object {($_.DistinguishedName -notlike $excludeOU1) -and ($_.DistinguishedName -notlike $excludeOU2) -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
+                    Where-Object {($_.DistinguishedName -notmatch $exclusionList) -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
                     ForEach-Object{
                         Set-ADComputer -Identity $_.Name -Description ($_.Description + " ::Disabled due to inactivity on $(Get-Date -Format d)::") -Enabled $false
                         $rc = New-Object PSObject
@@ -125,9 +123,8 @@ function Invoke-ADCleanup {
             param(
                 [int]$deleteAge,
                 [string]$searchOU,
-                [string]$excludeOU1,
-                [string]$excludeOU2,
-                [string]$Deleted_DSC_Report
+                [string]$Deleted_DSC_Report,
+                [string[]]$exclusionList
             )
             PROCESS {
                 # Local Variables
@@ -136,7 +133,7 @@ function Invoke-ADCleanup {
                 try {
                     Get-ADComputer -Filter {(pwdLastSet -lt $compareDate) -and (LastLogonTimeStamp -lt $compareDate) -and (Enabled -eq $false) -and (IsCriticalSystemObject -ne $True)} `
                     -Properties Name,pwdLastSet,operatingsystem,LastLogonTimeStamp,distinguishedname,servicePrincipalName,samaccountname -SearchScope Subtree -SearchBase $SearchOU |
-                    Where-Object {($_.DistinguishedName -notlike $excludeOU1) -and ($_.DistinguishedName -notlike $excludeOU2) -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
+                    Where-Object {($_.DistinguishedName -notmatch $exclusionList) -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
                     ForEach-Object{
                         try {
                             Remove-ADComputer -Identity $_.Name
@@ -228,7 +225,7 @@ function Invoke-ADCleanup {
                     switch ($result) {
                         0 {
                             Write-Output "`nYou selected Yes, running report..."
-                            $staleCount = Get-staleADComputer $disableAge $searchOU $excludeOU1 $excludeOU2 $StaleComputer_Report
+                            $staleCount = Get-staleADComputer $disableAge $searchOU $StaleComputer_Report $exclusionList
                             if ($staleCount -gt 0) {
                                 Write-Output "Report successfully ran and exported to $StaleComputer_Report`nThere are [$staleCount] stale computers reported in [$searchOU] OU and sub OU's`n"
                             }
@@ -251,7 +248,7 @@ function Invoke-ADCleanup {
                     switch ($result) {
                         0 {
                             Write-Output "`nYou selected Yes, disabling computers..."
-                            $disableCount = Disable-staleADComputer $disableAge $searchOU $excludeOU1 $excludeOU2 $Disabled_SC_Report
+                            $disableCount = Disable-staleADComputer $disableAge $searchOU $Disabled_SC_Report $exclusionList
                             if ($disableCount -gt 0) {
                                 Write-Output "Disabled computers log successfully exported to $Disabled_SC_Report`nDisabled [$disableCount] computers in [$searchOU] OU and sub OU's`n"
                             }
@@ -274,7 +271,7 @@ function Invoke-ADCleanup {
                     switch ($result) {
                         0 {
                             Write-Output "`nYou selected Yes, deleting computers..."
-                            $deleteCount = Remove-disableADComputer $deleteAge $searchOU $excludeOU1 $excludeOU2 $Deleted_DSC_Report
+                            $deleteCount = Remove-disableADComputer $deleteAge $searchOU $Deleted_DSC_Report $exclusionList
                             if ($deleteCount) {
                                 Write-Output "Deleted computers log successfully exported to $Deleted_DSC_Report`nDeleted [$deleteCount] computers in [$searchOU] OU and sub OU's`n"
                             }
