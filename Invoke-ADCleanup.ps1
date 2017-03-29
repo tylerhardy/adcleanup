@@ -21,8 +21,8 @@ function Invoke-ADCleanup {
         # Change these variables to your enivronment
         [int]$disableAge=90,
         [int]$deleteAge=120,
-        [string]$searchOU="OU=sci,OU=acad,OU=emp,DC=ad,DC=weber,DC=edu",
-        [string]$excludeOU1="*OU=AnatomyLab*",
+        [string]$searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com",
+        [string]$excludeOU1="*OU=servers*",
         [string]$excludeOU2="*OU=vm*",
         [string]$StaleComputer_Report="",
         [string]$Disabled_SC_Report="",
