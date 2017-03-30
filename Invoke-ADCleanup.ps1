@@ -7,7 +7,7 @@ function Invoke-ADCleanup {
         Script has three functions: 
         [Get-staleADComputer] - Finds all the potential stale computers on the network inactive for 90 days and exports the computers to a .CSV file.
         [Disable-staleADComputer] - Disables all stale AD computers that have been inactive within 90 days and export the log of the computers disabled.
-        [Delete-disableADComputers] - Deletes all disabled stale AD computers that have been inactive within 120 days and export the log of the computers deleted.
+        [Delete-disabledSADComputers] - Deletes all disabled stale AD computers that have been inactive within 120 days and export the log of the computers deleted.
 
     .NOTES
         File Name      : Invoke-ADCleanup.ps1
@@ -24,9 +24,10 @@ function Invoke-ADCleanup {
         [string]$StaleComputer_Report="",
         [string]$Disabled_SC_Report="",
         [string]$Deleted_DSC_Report="",
-        [string]$searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com"
+        [string]$searchOU=""
     )
     BEGIN {
+        # Global Variables
         # Exclusion List, add aditional OU's with '|' between the OU's
         $exclusionList = "OU=vm|OU=servers"
         if ([string]::IsNullOrWhiteSpace($StaleComputer_Report)) {
@@ -37,6 +38,9 @@ function Invoke-ADCleanup {
         }
         if ([string]::IsNullOrWhiteSpace($Deleted_DSC_Report)) {
             $Deleted_DSC_Report="$env:userprofile\Documents\$((Get-Date).ToString('yyyy-MM-dd'))_deleted_disabled_stale_computer_report.csv"
+        }
+        if ([string]::IsNullOrWhiteSpace($searchOU)) {
+            $searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com"
         }
     }
     PROCESS {
@@ -118,7 +122,7 @@ function Invoke-ADCleanup {
                 }
             }
         }
-        function Remove-disableADComputer {
+        function Remove-disabledSADComputer {
             [CmdletBinding()]
             param(
                 [int]$deleteAge,
@@ -174,7 +178,7 @@ function Invoke-ADCleanup {
 
                 }
                 catch {
-                    Write-Warning "[CATCH] Error, command (Remove-disableADComputer) failed: $($_.Exception)"
+                    Write-Warning "[CATCH] Error, command (Remove-disabledSADComputer) failed: $($_.Exception)"
                     Write-Warning $error[0].Exception.GetType().FullName
                 }
             }
@@ -195,7 +199,7 @@ function Invoke-ADCleanup {
             Write-Host "`n======================================================`n"            
             Write-Host "1: Press '1' To run report (Get-staleADComputer)."
             Write-Host "2: Press '2' To disable stale computers (Disable-staleADComputer)."
-            Write-Host "3: Press '3' To delete disabled computers (Remove-disableADComputer)."
+            Write-Host "3: Press '3' To delete disabled computers (Remove-disabledSADComputer)."
             Write-Host "Q: Press 'Q' to quit."
         }
         
@@ -262,16 +266,16 @@ function Invoke-ADCleanup {
                     }
                 } 
                 3 {
-                    # Runs Remove-disableADComputer function to delete disabled inactive computers
+                    # Runs Remove-disabledSADComputer function to delete disabled inactive computers
                     Clear-Host
-                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Remove-disableADComputer] to delete computers inactive for $deleteAge days."
+                    $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","Runs [Remove-disabledSADComputer] to delete computers inactive for $deleteAge days."
                     $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No","No computers deleted, returns to main menu."
                     $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
                     $result = $host.ui.PromptForChoice("Delete All Stale Disabled Computers", "Do you want to delete all stale disabled computers in COS AD?", $options, 1)
                     switch ($result) {
                         0 {
                             Write-Output "`nYou selected Yes, deleting computers..."
-                            $deleteCount = Remove-disableADComputer $deleteAge $searchOU $Deleted_DSC_Report $exclusionList
+                            $deleteCount = Remove-disabledSADComputer $deleteAge $searchOU $Deleted_DSC_Report $exclusionList
                             if ($deleteCount) {
                                 Write-Output "Deleted computers log successfully exported to $Deleted_DSC_Report`nDeleted [$deleteCount] computers in [$searchOU] OU and sub OU's`n"
                             }
@@ -296,5 +300,3 @@ function Invoke-ADCleanup {
         until ($input -eq 'q')
     }   
 }
-#Run Invoke-ADCleanup
-Invoke-ADCleanup
