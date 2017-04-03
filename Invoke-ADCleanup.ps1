@@ -341,4 +341,3 @@ function Invoke-ADCleanup {
         until ($input -eq 'q')
     }   
 }
-Invoke-ADCleanup
