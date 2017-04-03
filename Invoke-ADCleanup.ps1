@@ -1,55 +1,93 @@
 #requires -version 3.0
+#requires -Modules ActiveDirectory
+
 function Invoke-ADCleanup {
     <#
     .SYNOPSIS
-        AD cleanup script created to cleanup inactive stale computers off of a OU and sub OU's after a time of inactivity.
+        Finds/disables/deletes inactive computers from the chosen OU.
     .DESCRIPTION
         Script has three functions: 
-        [Get-staleADComputer] - Finds all the potential stale computers on the network inactive for 90 days and exports the computers to a .CSV file.
-        [Disable-staleADComputer] - Disables all stale AD computers that have been inactive within 90 days and export the log of the computers disabled.
-        [Delete-disabledSADComputers] - Deletes all disabled stale AD computers that have been inactive within 120 days and export the log of the computers deleted.
+        [Get-staleADComputer] - Finds all the potential stale computers on the 
+        network inactive for 90 days and exports the computers to a .CSV file.
+        [Disable-staleADComputer] - Disables all stale AD computers that have 
+        been inactive within 90 days and export the log of the computers 
+        disabled.
+        [Delete-disabledSADComputers] - Deletes all disabled stale AD computers 
+        that have been inactive within 120 days and export the log of the 
+        computers deleted.
 
     .NOTES
-        File Name      : Invoke-ADCleanup.ps1
-        Author         : Tyler Hardy (tylerhardy@gmail.com)
-        Prerequisite   : PowerShell V3, RSAT
-        Copyright 2017 - Tyler Hardy
+        File Name       : Invoke-ADCleanup.ps1
+        Date            : 04/03/2017
+        Version         : 1.1
+        Author          : Tyler Hardy (tylerhardy@gmail.com)
+        Prerequisite    : PowerShell V3, RSAT
+        Copyright 2017  - Tyler Hardy
     #>
+
     [CmdletBinding()]
-    param(
+    Param (
+        # Age to disable inactive computers.
         [Parameter()]
-        # Change these variables to your enivronment
-        [int]$disableAge=90,
-        [int]$deleteAge=120,
-        [string]$StaleComputer_Report="",
-        [string]$Disabled_SC_Report="",
-        [string]$Deleted_DSC_Report="",
-        [string]$searchOU=""
+            [int]
+            $disableAge=90,
+        # Age to delete previously disabled, inactive computers.
+        [Parameter()]
+            [int]
+            $deleteAge=120,
+        # Stale Computer Report file name [with or without full path].
+        [Parameter()]
+            [string]
+            $StaleComputer_Report='',
+        # Disabled Stale Computer Report file name [with or without full path].
+        [Parameter()]
+            [string]
+            $Disabled_SC_Report='',
+        # Deleted Disabled Stale Computer Report file name [with or without full path].
+        [Parameter()]
+            [string]
+            $Deleted_DSC_Report='',
+        # The OU to search.
+        [Parameter()]
+            [string]
+            $searchOU='',
+        # The OU to search.
+        [Parameter()]
+            [string[]]
+            $exclusionList=''
     )
     BEGIN {
-        # Global Variables
-        # Exclusion List, add aditional OU's with '|' between the OU's
-        $exclusionList = "OU=vm|OU=servers"
+        #####################################
+        # Global Variables - Change these variables to your environment
+        #####################################
+        $ReportFolder = "$env:userprofile\Documents"
+        $TimeStamp = (Get-Date).ToString('yyyy-MM-dd')
+        $FilePrefix = Join-Path -Path $ReportFolder -ChildPath $TimeStamp
+
         if ([string]::IsNullOrWhiteSpace($StaleComputer_Report)) {
-            $StaleComputer_Report="$env:userprofile\Documents\$((Get-Date).ToString('yyyy-MM-dd'))_stale_computer_report.csv"
+            $StaleComputer_Report = "$($FilePrefix)_stale_computer_report.csv"
         }
         if ([string]::IsNullOrWhiteSpace($Disabled_SC_Report)) {
-            $Disabled_SC_Report="$env:userprofile\Documents\$((Get-Date).ToString('yyyy-MM-dd'))_disabled_stale_computer_report.csv"
+            $Disabled_SC_Report = "$($FilePrefix)_disabled_stale_computer_report.csv"
         }
         if ([string]::IsNullOrWhiteSpace($Deleted_DSC_Report)) {
-            $Deleted_DSC_Report="$env:userprofile\Documents\$((Get-Date).ToString('yyyy-MM-dd'))_deleted_disabled_stale_computer_report.csv"
+            $Deleted_DSC_Report = "$($FilePrefix)_deleted_disabled_stale_computer_report.csv"
         }
+
         if ([string]::IsNullOrWhiteSpace($searchOU)) {
             $searchOU="OU=Corporate Computers,DC=corp,DC=agricorp,DC=com"
         }
-    }
-    PROCESS {
+
+        if ([string]::IsNullOrWhiteSpace($exclusionList)) {
+            $exclusionList="OU=vm","OU=servers","OU=exclude3"
+        }
+
         #####################################
         # Functions
         #####################################
         function Get-staleADComputer {
             [CmdletBinding()]
-            param(
+            Param (
                 [int]$disableAge,
                 [string]$searchOU,
                 [string]$StaleComputer_Report,
@@ -63,7 +101,7 @@ function Invoke-ADCleanup {
                     # Build the report
                     $stalePCReport = Get-ADComputer -Filter {(isCriticalSystemObject -eq $False)} -Properties Name,PwdLastSet,WhenChanged,SamAccountName,LastLogonTimeStamp,Enabled,IPv4Address,`
                     operatingsystem,operatingsystemversion,serviceprincipalname -SearchScope Subtree -SearchBase $SearchOU -ErrorAction Stop |
-                    Where-Object {($_.DistinguishedName -notmatch $exclusionList)} |
+                    Where-Object {((ForEach-Object {$_.DistinguishedName -notmatch ($exclusionList -join "|")}) -eq 'true')} |
                     Select-Object Name,operatingsystem,operatingsystemversion,Enabled,@{Name="PwdLastSet";Expression={[datetime]::FromFileTime($_.PwdLastSet)}},`
                     @{Name="LastLogonTimeStamp";Expression={[datetime]::FromFileTime($_.LastLogonTimeStamp)}},WhenChanged,IPv4Address, `
                     @{Name="Stale";Expression={if((($_.pwdLastSet -lt $compareDate.ToFileTimeUTC()) -and ($_.pwdLastSet -ne 0)`
@@ -82,7 +120,7 @@ function Invoke-ADCleanup {
         }
         function Disable-staleADComputer {
             [CmdletBinding()]
-            param(
+            Param (
                 [int]$disableAge,
                 [string]$searchOU,
                 [string]$Disabled_SC_Report,
@@ -96,7 +134,7 @@ function Invoke-ADCleanup {
                     Get-ADComputer -Filter {(pwdLastSet -lt $compareDate) -and (LastLogonTimeStamp -lt $compareDate) -and (Enabled -eq $True) -and (IsCriticalSystemObject -ne $True)}`
                     -Properties Name,PwdLastSet,WhenChanged,SamAccountName,LastLogonTimeStamp,Enabled,Description,IPv4Address,`
                     operatingsystem,operatingsystemversion,serviceprincipalname,DistinguishedName -SearchScope Subtree -SearchBase $SearchOU |
-                    Where-Object {($_.DistinguishedName -notmatch $exclusionList) -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
+                    Where-Object {((ForEach-Object {$_.DistinguishedName -notmatch ($exclusionList -join "|")}) -eq 'true') -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
                     ForEach-Object{
                         Set-ADComputer -Identity $_.Name -Description ($_.Description + " ::Disabled due to inactivity on $(Get-Date -Format d)::") -Enabled $false
                         $rc = New-Object PSObject
@@ -124,7 +162,7 @@ function Invoke-ADCleanup {
         }
         function Remove-disabledSADComputer {
             [CmdletBinding()]
-            param(
+            Param (
                 [int]$deleteAge,
                 [string]$searchOU,
                 [string]$Deleted_DSC_Report,
@@ -137,7 +175,7 @@ function Invoke-ADCleanup {
                 try {
                     Get-ADComputer -Filter {(pwdLastSet -lt $compareDate) -and (LastLogonTimeStamp -lt $compareDate) -and (Enabled -eq $false) -and (IsCriticalSystemObject -ne $True)} `
                     -Properties Name,pwdLastSet,operatingsystem,LastLogonTimeStamp,distinguishedname,servicePrincipalName,samaccountname -SearchScope Subtree -SearchBase $SearchOU |
-                    Where-Object {($_.DistinguishedName -notmatch $exclusionList) -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
+                    Where-Object {((ForEach-Object {$_.DistinguishedName -notmatch ($exclusionList -join "|")}) -eq 'true') -and (!($_.serviceprincipalname -like "*MSClusterVirtualServer*"))} |
                     ForEach-Object{
                         try {
                             Remove-ADComputer -Identity $_.Name
@@ -184,7 +222,7 @@ function Invoke-ADCleanup {
             }
         }
         function Show-Menu {
-            param (
+            Param (
                 [int]$disableAge,
                 [int]$deleteAge
             )
@@ -202,7 +240,10 @@ function Invoke-ADCleanup {
             Write-Host "3: Press '3' To delete disabled computers (Remove-disabledSADComputer)."
             Write-Host "Q: Press 'Q' to quit."
         }
-        
+
+    }
+    PROCESS {
+
         #####################################
         # Script
         #####################################
@@ -300,3 +341,4 @@ function Invoke-ADCleanup {
         until ($input -eq 'q')
     }   
 }
+Invoke-ADCleanup
